@@ -1,0 +1,16 @@
+env_loader.c: A Helper Program for .env File Parsing
+Compile code for above file: gcc -c env_loader.c -o env_loader.o
+
+env_loader.h: the function prototype in a header file to be included in connect.c
+	
+For conect.c: gcc connect.c env_loader.o -o connect
+
+Run: ./connect
+
+For App/
+
+main.c: main code
+
+1) gcc main.c ../env_loader.c -o main `pkg-config --cflags --libs gtk+-3.0` -lcurl
+
+2) gcc main.c ../env_loader.c -lncurses -lcurl -o main
