@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <curl/curl.h>
+#include <time.h>
 #include "../env_loader.h"
 
 // Global Variables
@@ -27,13 +27,13 @@ int total_questions = 2;
 // Function prototypes
 static void submit_answer(GtkWidget *widget, gpointer entry);
 static void next_question(GtkWidget *widget, gpointer data);
-static gboolean update_timer(gpointer label);
+static gboolean update_timer(gpointer data);
 void load_api_key();
 
 // Timer variables
 gboolean running = FALSE;
 guint timer_id = 0;
-gdouble start_time;
+time_t start_time;
 
 // Initialize GTK Application
 int main(int argc, char *argv[]) {
@@ -86,7 +86,10 @@ int main(int argc, char *argv[]) {
 
     // Start Timer
     running = TRUE;
-    start_time = g_get_monotonic_time() / 1000.0;
+    start_time = time(NULL);
+
+    // Start updating timer
+    timer_id = g_timeout_add(1000, update_timer, timer_label);
 
     gtk_main();
     return 0;
@@ -111,7 +114,8 @@ static void submit_answer(GtkWidget *widget, gpointer entry) {
 
     // Stop Timer and calculate time taken for the current question
     if (running) {
-        double elapsed = g_get_monotonic_time() / 1000.0 - start_time;
+        time_t end_time = time(NULL);
+        double elapsed = difftime(end_time, start_time);
         question_times[current_question] = elapsed;
         total_time += elapsed;
         answered_questions++;
@@ -137,22 +141,22 @@ static void next_question(GtkWidget *widget, gpointer data) {
         gtk_label_set_text(GTK_LABEL(gtk_widget_get_parent(widget)), "00:00:00");
 
         running = TRUE;
-        start_time = g_get_monotonic_time() / 1000.0;
+        start_time = time(NULL);
         timer_id = g_timeout_add(1000, update_timer, gtk_widget_get_parent(widget));
     }
 }
 
 // Timer Update Handler
-static gboolean update_timer(gpointer label) {
+static gboolean update_timer(gpointer data) {
     if (!running) return FALSE;
 
-    gdouble elapsed = g_get_monotonic_time() / 1000.0 - start_time;
-    int hours = (int)(elapsed / 3600);
-    int minutes = (int)((elapsed / 60)) % 60;
-    int seconds = (int)(elapsed) % 60;
+    time_t elapsed_time = time(NULL) - start_time;
+    int hours = elapsed_time / 3600;
+    int minutes = (elapsed_time / 60) % 60;
+    int seconds = elapsed_time % 60;
 
-    // Update timer label with the new time
-    gtk_label_set_text(GTK_LABEL(label), g_strdup_printf("%02d:%02d:%02d", hours, minutes, seconds));
+    // Update the timer label
+    gtk_label_set_text(GTK_LABEL(data), g_strdup_printf("%02d:%02d:%02d", hours, minutes, seconds));
 
     return TRUE;
 }
