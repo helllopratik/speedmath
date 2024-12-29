@@ -25,7 +25,7 @@ Question questions[] = {
 int total_questions = 2;
 
 // Function prototypes
-static void submit_answer(GtkWidget *widget, gpointer entry);
+static void submit_answer(GtkWidget *widget, gpointer data);
 static void next_question(GtkWidget *widget, gpointer data);
 static gboolean update_timer(gpointer data);
 void load_api_key();
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     // Next Question Button
     GtkWidget *next_button = gtk_button_new_with_label("Next Question");
     gtk_grid_attach(GTK_GRID(grid), next_button, 1, 5, 1, 1);
-    g_signal_connect(next_button, "clicked", G_CALLBACK(next_question), NULL);
+    g_signal_connect(next_button, "clicked", G_CALLBACK(next_question), question_label);
 
     // Show all widgets
     gtk_widget_show_all(window);
@@ -108,8 +108,8 @@ void load_api_key() {
 }
 
 // Submit Answer Handler
-static void submit_answer(GtkWidget *widget, gpointer entry) {
-    const char *user_answer = gtk_entry_get_text(GTK_ENTRY(entry));
+static void submit_answer(GtkWidget *widget, gpointer data) {
+    const char *user_answer = gtk_entry_get_text(GTK_ENTRY(data));
     printf("User Answer: %s\n", user_answer); // Simulate API interaction
 
     // Stop Timer and calculate time taken for the current question
@@ -126,23 +126,33 @@ static void submit_answer(GtkWidget *widget, gpointer entry) {
     // Update Average Time
     double avg_time = total_time / answered_questions;
     char avg_time_text[50];
-    snprintf(avg_time_text, sizeof(avg_time_text), "Average Time: %.2f seconds", avg_time);
-    gtk_label_set_text(GTK_LABEL(gtk_widget_get_parent(widget)), avg_time_text); // Update average time label
+    snprintf(avg_time_text, sizeof(avg_time_text), "Average Time: %.2f seconds", avg_time);  // Corrected line
+
+    // Find the average time label and update it
+    GtkWidget *avg_time_label = gtk_widget_get_parent(widget);
+    while (!GTK_IS_LABEL(avg_time_label)) {
+        avg_time_label = gtk_widget_get_parent(avg_time_label);
+    }
+    gtk_label_set_text(GTK_LABEL(avg_time_label), avg_time_text); // Update average time label
 }
 
 // Next Question Handler
 static void next_question(GtkWidget *widget, gpointer data) {
     current_question++;
     if (current_question < total_questions) {
-        // Load next question
-        gtk_label_set_text(GTK_LABEL(gtk_widget_get_parent(widget)), questions[current_question].question);
-        
+        // Update the question
+        gtk_label_set_text(GTK_LABEL(data), questions[current_question].question);
+
         // Reset Timer
-        gtk_label_set_text(GTK_LABEL(gtk_widget_get_parent(widget)), "00:00:00");
+        GtkWidget *timer_label = gtk_widget_get_parent(widget);
+        while (!GTK_IS_LABEL(timer_label)) {
+            timer_label = gtk_widget_get_parent(timer_label);
+        }
+        gtk_label_set_text(GTK_LABEL(timer_label), "00:00:00");
 
         running = TRUE;
         start_time = time(NULL);
-        timer_id = g_timeout_add(1000, update_timer, gtk_widget_get_parent(widget));
+        timer_id = g_timeout_add(1000, update_timer, timer_label);
     }
 }
 
