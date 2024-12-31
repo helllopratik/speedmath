@@ -94,6 +94,7 @@ void load_api_key() {
         exit(1);
     }
     strncpy(api_key, key, sizeof(api_key));
+    printf("API Key Loaded: %s\n", api_key);  // Optional: Debug print to ensure it's loaded
 }
 
 // Send Query to Gemini API
@@ -107,21 +108,29 @@ void send_query(const char *query) {
         return;
     }
 
+    // Correct URL for Gemini API
     char url[512];
-    snprintf(url, sizeof(url), "https://gemini.example.com/api/v1/query");
+    snprintf(url, sizeof(url), "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s", api_key);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
-    headers = curl_slist_append(headers, api_key);
+
+    // Increased size for authorization header buffer to avoid truncation
+    char authorization_header[512];  // Make this large enough for the full "Bearer <api_key>" string
+    snprintf(authorization_header, sizeof(authorization_header), "Authorization: Bearer %s", api_key);
+    headers = curl_slist_append(headers, authorization_header);
 
     char post_data[1024];
-    snprintf(post_data, sizeof(post_data), "{\"query\": \"%s\"}", query);
+    snprintf(post_data, sizeof(post_data), "{\"contents\": [{\"parts\": [{\"text\": \"%s\"}]}]}", query);
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, response_buffer);
+
+    // Enable verbose mode for more details
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
