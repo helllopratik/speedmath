@@ -86,8 +86,8 @@ void update_status(const char *status) {
 // Load API Key from .env
 void load_api_key() {
     char env_file[256];
-    snprintf(env_file, sizeof(env_file), "%s/Desktop/.env", getenv("HOME"));
-    const char *key = get_env_variable(env_file, "GEMINI_API_KEY");
+    snprintf(env_file, sizeof(env_file), "%s/Desktop/speedmath/.env", getenv("HOME"));
+    const char *key = get_env_variable(env_file, "key");
     if (!key) {
         update_status("Failed: API Key Missing");
         fprintf(stderr, "Failed to load API Key.\n");
