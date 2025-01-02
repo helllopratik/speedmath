@@ -5,7 +5,7 @@
 int main() {
     // Dynamically construct the path to the .env file
     char env_file[256];
-    snprintf(env_file, sizeof(env_file), "%s/Desktop/.env", getenv("HOME")); // Adjust path for non-Linux systems
+    snprintf(env_file, sizeof(env_file), "%s.env", getenv("HOME")); // Adjust path for non-Linux systems
 
     // Fetch the API key
     const char* api_key = get_env_variable(env_file, "GEMINI_API_KEY");
