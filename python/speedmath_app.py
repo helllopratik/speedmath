@@ -5,8 +5,8 @@ import tkinter as tk
 from tkinter import scrolledtext, messagebox
 from threading import Thread
 import re
-import time  # For timer functionality
-import sys  # For restarting the program
+import time
+import sys
 
 # Load environment variables for Gemini API key
 load_dotenv()
@@ -18,13 +18,30 @@ model = genai.GenerativeModel('gemini-pro')
 
 # Default query for the first question
 DEFAULT_QUERY = (
-    "Provide one speed math PYQ for Indian Banking with options (may be incorrect) per request. No answer until I provide mine."
+    "Provide one speed math question at a time for practice for Indian banking exams. "
+    "Include approximation and simplification questions. Each question should have "
+    "options but mention that the options could be incorrect. After displaying the question, "
+    "wait for the user's answer before revealing the correct solution and stepwise explanation. "
+    "Do not evaluate the user's response or provide any solution unless explicitly prompted after the user's input."
 )
 
 # Global variables for timer and average time calculation
 start_time = None
 time_taken = []
 question_count = 0
+running_timer = True
+current_question = ""  # Store the current question
+current_options = ""   # Store the options for the current question
+
+# Function to update the timer display
+def update_timer():
+    while running_timer:
+        if start_time:
+            elapsed_time = time.time() - start_time
+            timer_label.config(text=f"Timer: {elapsed_time:.2f} seconds")
+        else:
+            timer_label.config(text="Timer: --")
+        time.sleep(1)
 
 # Function to send queries to Gemini API
 def send_query_to_gemini(query):
@@ -37,15 +54,15 @@ def send_query_to_gemini(query):
                 all_responses.append(part.text)
         return " ".join(all_responses)
     except Exception as e:
-        print(f"Error during interaction with Server: {e}")
+        print(f"Error during interaction with Gemini AI: {e}")
         return f"Failed to get response: {e}"
 
 # Function to handle user input
 def on_send():
-    global start_time, time_taken, question_count
+    global start_time, time_taken, question_count, current_question, current_options
 
-    user_input = entry.get()
-    if user_input and re.match(r'^\d$', user_input):  # Validate single-digit numeric input
+    user_input = entry.get().strip()
+    if user_input:  # Allow any non-empty input
         chat_area.config(state='normal')
         chat_area.insert(tk.END, f"You: {user_input}\n")
         chat_area.config(state='disabled')
@@ -65,37 +82,42 @@ def on_send():
             chat_area.config(state='disabled')
 
         def handle_response():
-            if user_input == "1":
-                # Send a request for the next question
-                response_text = send_query_to_gemini("Send the next question only. No solution.")
+            if re.match(r"^[A-Za-z0-9\s]+$", user_input):  # Valid input check
+                # Send the user's response along with the question and options for evaluation
+                response_text = send_query_to_gemini(
+                    f"Question: {current_question}\nOptions: {current_options}\nUser's Answer: {user_input}. "
+                    f"Verify if the user's answer is correct and provide a stepwise solution."
+                )
                 chat_area.config(state='normal')
                 chat_area.insert(tk.END, f"Bot: {response_text}\n")
                 chat_area.config(state='disabled')
-                global start_time
-                start_time = time.time()  # Restart the timer for the next question
             else:
-                # Terminate the connection and notify the user
                 chat_area.config(state='normal')
-                chat_area.insert(tk.END, "Bot: Connection terminated. Thank you for using SpeedMath!\n")
+                chat_area.insert(tk.END, "Bot: Invalid input. Please provide a valid response (e.g., an option or number).\n")
                 chat_area.config(state='disabled')
-                send_button.config(state=tk.DISABLED)
-                entry.config(state=tk.DISABLED)
 
         # Start a thread to handle the response
         thread = Thread(target=handle_response)
         thread.start()
     else:
-        messagebox.showwarning("Invalid Input", "Please enter a single numeric character.")
+        messagebox.showwarning("Invalid Input", "Please enter your answer.")
 
 # Function to handle the default query
 def load_default_query():
-    global start_time
+    global start_time, current_question, current_options
     chat_area.config(state='normal')
     chat_area.insert(tk.END, "Bot: Sending default query to Gemini...\n")
     chat_area.config(state='disabled')
 
     def handle_default_query():
         response_text = send_query_to_gemini(DEFAULT_QUERY)
+        # Extract the question and options
+        current_question_match = re.search(r"(?<=\*\*Question.*:\*\*).+?(?=\*\*Options)", response_text, re.DOTALL)
+        current_options_match = re.search(r"(?<=\*\*Options:\*\*).+?(?=\*\*Note)", response_text, re.DOTALL)
+        global current_question, current_options
+        current_question = current_question_match.group(0).strip() if current_question_match else "N/A"
+        current_options = current_options_match.group(0).strip() if current_options_match else "N/A"
+
         chat_area.config(state='normal')
         chat_area.insert(tk.END, f"Bot: {response_text}\n")
         chat_area.config(state='disabled')
@@ -112,13 +134,19 @@ def on_ask_again():
 
 # Gracefully close the app
 def on_close():
+    global running_timer
+    running_timer = False
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
         root.destroy()
 
 # Main GUI Window
 root = tk.Tk()
 root.title("SpeedMath - Conversational Bot")
-root.geometry("900x650")
+root.geometry("900x700")
+
+# Timer Display
+timer_label = tk.Label(root, text="Timer: --", font=("Helvetica", 14))
+timer_label.pack(pady=5)
 
 # Chat Area
 frame = tk.Frame(root)
@@ -138,6 +166,10 @@ send_button.pack(side=tk.LEFT, padx=10, pady=10)
 # Ask Again Button
 ask_again_button = tk.Button(root, text="Restart", command=on_ask_again)
 ask_again_button.pack(side=tk.LEFT, padx=10, pady=10)
+
+# Start the Timer Thread
+timer_thread = Thread(target=update_timer, daemon=True)
+timer_thread.start()
 
 # Start the App
 root.protocol("WM_DELETE_WINDOW", on_close)
