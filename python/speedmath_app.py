@@ -48,11 +48,7 @@ def send_query_to_gemini(query):
     try:
         chat = model.start_chat(history=[])
         response = chat.send_message(query)
-        all_responses = []
-        for part in response.parts:
-            if part.text:
-                all_responses.append(part.text)
-        return " ".join(all_responses)
+        return "".join(part.text for part in response.parts if part.text)
     except Exception as e:
         print(f"Error during interaction with Gemini AI: {e}")
         return f"Failed to get response: {e}"
@@ -62,19 +58,16 @@ def on_send():
     global start_time, time_taken, question_count, current_question, current_options
 
     user_input = entry.get().strip()
-    if user_input:  # Allow any non-empty input
+    if user_input:
         chat_area.config(state='normal')
         chat_area.insert(tk.END, f"You: {user_input}\n")
         chat_area.config(state='disabled')
         entry.delete(0, tk.END)
 
-        # Calculate time taken for the current question
         if start_time is not None:
             elapsed_time = time.time() - start_time
             time_taken.append(elapsed_time)
             question_count += 1
-
-            # Display average time
             avg_time = sum(time_taken) / question_count
             chat_area.config(state='normal')
             chat_area.insert(tk.END, f"Bot: Time taken for this question: {elapsed_time:.2f} seconds.\n")
@@ -82,23 +75,15 @@ def on_send():
             chat_area.config(state='disabled')
 
         def handle_response():
-            if re.match(r"^[A-Za-z0-9\s]+$", user_input):  # Valid input check
-                # Send the user's response along with the question and options for evaluation
-                response_text = send_query_to_gemini(
-                    f"Question: {current_question}\nOptions: {current_options}\nUser's Answer: {user_input}. "
-                    f"Verify if the user's answer is correct and provide a stepwise solution."
-                )
-                chat_area.config(state='normal')
-                chat_area.insert(tk.END, f"Bot: {response_text}\n")
-                chat_area.config(state='disabled')
-            else:
-                chat_area.config(state='normal')
-                chat_area.insert(tk.END, "Bot: Invalid input. Please provide a valid response (e.g., an option or number).\n")
-                chat_area.config(state='disabled')
+            response_text = send_query_to_gemini(
+                f"Question: {current_question}\nOptions: {current_options}\nUser's Answer: {user_input}. "
+                f"Verify if the user's answer is correct and provide a stepwise solution."
+            )
+            chat_area.config(state='normal')
+            chat_area.insert(tk.END, f"Bot: {response_text}\n")
+            chat_area.config(state='disabled')
 
-        # Start a thread to handle the response
-        thread = Thread(target=handle_response)
-        thread.start()
+        Thread(target=handle_response).start()
     else:
         messagebox.showwarning("Invalid Input", "Please enter your answer.")
 
@@ -111,21 +96,19 @@ def load_default_query():
 
     def handle_default_query():
         response_text = send_query_to_gemini(DEFAULT_QUERY)
-        # Extract the question and options
-        current_question_match = re.search(r"(?<=\*\*Question.*:\*\*).+?(?=\*\*Options)", response_text, re.DOTALL)
-        current_options_match = re.search(r"(?<=\*\*Options:\*\*).+?(?=\*\*Note)", response_text, re.DOTALL)
+        question_match = re.search(r"(?<=\*\*Question.*:\*\*).+?(?=\*\*Options)", response_text, re.DOTALL)
+        options_match = re.search(r"(?<=\*\*Options:\*\*).+?(?=\*\*Note)", response_text, re.DOTALL)
         global current_question, current_options
-        current_question = current_question_match.group(0).strip() if current_question_match else "N/A"
-        current_options = current_options_match.group(0).strip() if current_options_match else "N/A"
+        current_question = question_match.group(0).strip() if question_match else "N/A"
+        current_options = options_match.group(0).strip() if options_match else "N/A"
 
         chat_area.config(state='normal')
         chat_area.insert(tk.END, f"Bot: {response_text}\n")
         chat_area.config(state='disabled')
         global start_time
-        start_time = time.time()  # Start the timer for the first question
+        start_time = time.time()
 
-    thread = Thread(target=handle_default_query)
-    thread.start()
+    Thread(target=handle_default_query).start()
 
 # Restart the app
 def on_ask_again():
@@ -168,8 +151,7 @@ ask_again_button = tk.Button(root, text="Restart", command=on_ask_again)
 ask_again_button.pack(side=tk.LEFT, padx=10, pady=10)
 
 # Start the Timer Thread
-timer_thread = Thread(target=update_timer, daemon=True)
-timer_thread.start()
+Thread(target=update_timer, daemon=True).start()
 
 # Start the App
 root.protocol("WM_DELETE_WINDOW", on_close)
